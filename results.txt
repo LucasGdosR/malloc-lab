@@ -1,0 +1,124 @@
+Memory utilization is worth 60 points, and
+throughput is worth 40 points. These are
+results for the different implementations:
+___________________________________________
+Implicit free list:
+    every block has a header and a footer;
+First-fit policy;
+Split when there's at least a min length left;
+Coalesce both neighbors using header/footer;
+Realloc uses malloc and free.
+
+Results for mm malloc:
+trace  valid  util     ops      secs  Kops
+ 0       yes   99%    5694  0.004806  1185
+ 1       yes   99%    5848  0.004456  1312
+ 2       yes   99%    6648  0.006865   968
+ 3       yes  100%    5380  0.005059  1064
+ 4       yes   66%   14400  0.000067214925
+ 5       yes   91%    4800  0.003728  1288
+ 6       yes   92%    4800  0.003520  1363
+ 7       yes   55%   12000  0.126471    95
+ 8       yes   51%   24000  0.213453   112
+ 9       yes   27%   14401  0.054831   263
+10       yes   34%   14401  0.001716  8392
+Total          74%  112372  0.424973   264
+
+Perf index = 44 (util) + 18 (thru) = 62/100
+___________________________________________
+Explicit free list:             <--- change
+    every block has a header and a footer;
+    free blocks have pred and succ fields
+        with 32 bit pointers;
+First-fit policy w/ LIFO list;  <--- change
+Split when there's at least a min length left;
+Coalesce both neighbors using header/footer;
+Realloc uses malloc and free.
+
+Results for mm malloc:
+trace  valid  util     ops      secs  Kops
+ 0       yes   92%    5694  0.000104 54803
+ 1       yes   94%    5848  0.000090 64762
+ 2       yes   96%    6648  0.000117 56869
+ 3       yes   97%    5380  0.000111 48381
+ 4       yes   66%   14400  0.000093155508
+ 5       yes   87%    4800  0.000188 25505
+ 6       yes   85%    4800  0.000175 27382
+ 7       yes   55%   12000  0.003941  3045
+ 8       yes   51%   24000  0.002652  9049
+ 9       yes   26%   14401  0.054466   264
+10       yes   34%   14401  0.001735  8299
+Total          71%  112372  0.063673  1765
+
+Perf index = 43 (util) + 40 (thru) = 83/100
+___________________________________________
+Explicit w/ less footers:
+    every block has a header;
+    free blocks have footers;   <--- change
+    free blocks have pred and succ fields
+        with 32 bit pointers;
+First-fit policy w/ LIFO list;
+Split when there's at least a min length left;
+Coalesce both neighbors using header/footer;
+Realloc uses malloc and free.
+
+Results for mm malloc:
+trace  valid  util     ops      secs  Kops
+ 0       yes   92%    5694  0.000121 47058
+ 1       yes   94%    5848  0.000092 63773
+ 2       yes   96%    6648  0.000146 45534
+ 3       yes   97%    5380  0.000132 40788
+ 4       yes   66%   14400  0.000102140900
+ 5       yes   87%    4800  0.000314 15311
+ 6       yes   85%    4800  0.000319 15066
+ 7       yes   55%   12000  0.003667  3273
+ 8       yes   51%   24000  0.002653  9046
+ 9       yes   26%   14401  0.053493   269
+10       yes   34%   14401  0.001726  8343
+Total          71%  112372  0.062763  1790
+
+Perf index = 43 (util) + 40 (thru) = 83/100
+___________________________________________
+Explicit w/ best fit:
+    every block has a header;
+    free blocks have footers;
+    free blocks have pred and succ fields
+        with 32 bit pointers;
+Best-fit policy;                <--- change
+Split when there's at least a min length left;
+Coalesce both neighbors using header/footer;
+Realloc uses malloc and free.
+
+Results for mm malloc:
+trace  valid  util     ops      secs  Kops
+ 0       yes   99%    5694  0.000123 46330
+ 1       yes   99%    5848  0.000126 46413
+ 2       yes  100%    6648  0.000151 44114
+ 3       yes  100%    5380  0.000127 42530
+ 4       yes   66%   14400  0.000115125436
+ 5       yes   95%    4800  0.001976  2429
+ 6       yes   95%    4800  0.001886  2545
+ 7       yes   55%   12000  0.023152   518
+ 8       yes   51%   24000  0.077036   312
+ 9       yes   31%   14401  0.054286   265
+10       yes   30%   14401  0.001913  7528
+Total          75%  112372  0.160891   698
+
+Perf index = 45 (util) + 40 (thru) = 85/100
+___________________________________________
+Segregated free list:           <--- change
+    header only with size;      <--- change
+First-fit policy w/ LIFO list;
+Never split, never coalesce;    <--- change
+Custom realloc.                 <--- change
+Most of the work is done in mm_init:
+Pointer to an array of pointers:
+    each pointer points to a doubly-linked
+        free-list of a different size;
+    when a list is empty, alloc a page and
+        initiallize a list structure in it;
+Weakpoints:
+    internal fragmentation depending on
+        size incr between pointers;
+    external fragmentation if a size is
+        freed and not allocated afterwards.
